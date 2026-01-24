@@ -1,0 +1,260 @@
+Introduction
+The subject of the project is the implementation of WAF (Web Application Firewall), i.e. a firewall that acts as a shield on websites. It mainly protects against attacks such as: SQL Injection, Cross Site Scripting, Local File Inclusion.
+The lack of such a firewall can lead to, for example, identity theft, data leaks, and millions in losses for companies. The project is based on the NGINX server, which, together with the ModSecurity firewall and OWASP rules, was set up in a Docker environment due to its easy implementation on the server.
+
+
+2 Theoretical part
+Versions of software used:
+Windows: 10
+VirtualBox: 6.1.26 r145957 (Qt5.6.2)
+Vagrant: 2.4.9 '
+Ubuntu: 22.04
+Docker: 29.0.3
+Docker Compose: v2.40.3
+
+ModSecurity: v3
+Project diagram:
+PATH listing folder
+Volume serial number is E8DA-8A81
+C:.
+|   docker-compose.yml
+|   Vagrantfile
+|   
++---.vagrant
+|   +---machines
+|   |   \---default
+|   |       \---virtualbox
+|   |               action_cloud_init
+|   |               action_provision
+|   |               action_set_name
+|   |               box_meta
+|   |               creator_uid
+|   |               disk_meta
+|   |               id
+|   |               index_uuid
+|   |               private_key
+|   |               synced_folders
+|   |               vagrant_cwd
+|   |               
+|   \---rgloader
+|           loader.rb
+|           
++---logs
+|   \---modsec
++---nginx-waf
+|   |   Dockerfile
+|   |   
+|   +---conf.d
+|   |       default.conf
+|   |       default.conf.bak
+|   |       logging.conf
+|   |       modsecurity.conf
+|   |       
+|   +---custom-includes
+|   |       proxy_backend.conf
+|   |       
+|   +---includes
+|   |       cors.conf
+|   |       location_common.conf
+|   |       proxy_backend.conf
+|   |       proxy_backend.conf.bak
+|   |       proxy_backend_ssl.conf
+|   |       
+|   +---modsec
+|   |       modsecurity.conf
+|   |       
+|   \---templates
+|       \---conf.d
+|               default.conf.template
+|               
++---provision
+|       install_docker.sh
+|       
++---tests
+|   |   run_tests.sh
+|   |   
+|   \---.vs
+|       |   ProjectSettings.json
+|       |   slnx.sqlite
+|       |   VSWorkspaceState.json
+|       |   
+|       \---tests
+|           +---copilot-chat
+|           |   \---982b6547
+|           |       \---sessions
+|           +---CopilotIndices
+|           |   \---17.14.670.39694
+|           |           CodeChunks.db
+|           |           SemanticSymbols.db
+|           |           
+|           \---v17
+|                   DocumentLayout.json
+|                   
+\---webapp
+    |   Dockerfile
+    |   
+    \---www
+            index.html
+Vagrantfile: 
+The file first launches Ubuntu on a virtual machine (or installs it if it is not already present) in version 22.04 with the name ubuntu-docker.
+Traffic directed to port 8080 of the host is redirected to port 80 on the virtual machine. I also added a correction in case the port is busy.
+For laboratory purposes, I decided to use a private network in which the machine automatically receives the static IP address 10.10.10.10.
+The following lines define the machine's resources, i.e., the name, amount of RAM, and number of CPUs. 
+I used provisioning to automatically update packages and tools.
+These packages are necessary to support HTTPS and add GPG keys. The Docker engine and Docker Compose are also installed here.
+
+DOCKER-COMPOSE.YML
+
+The docker-compose.yml file defines and launches a set of containers that create an environment,
+i.e., a WAF based on nginx, modsecurity, and owasp crs rules. It also creates and launches a backend webapp prepared for the project's needs.
+
+Nginx-waf:
+The nginx-waf container contains the nginx dockerfile (reserve proxy), nginx configurations, modsecurity configurations, and OWASP CRS rules. 
+Port mapping: Traffic coming to ports 80 and 443 goes straight to NGINX-WAF.
+NGINX listens on ports 8080 and 8443 and analyzes traffic using modsecurity.
+If everything is OK, the request is forwarded to the webapp on port 80.
+However, if it detects an XSS or SQLi attack, modsecurity will block access and return a 403 error (access denied).
+
+NGINX-WAF/DOCKERFILE:
+The image was downloaded from the official OWASP ModSecurity CRS project.
+I chose this image because it contains NGINX with ModSecurity already built in and I am sure that the versions are compatible and OWASP CRS is configured. 
+
+NGINX-WAF/TEMPLATES/CONF.D/DEFAULT.CONF.TEMPLATE:
+This file is a configuration template for the NGINX server. It defines the HTTP/HTTPS server for WAF.
+It launches ModSecurity for NGINX. It is responsible for listening on ports 8080 and 8443 and forwards all traffic to the backend if ModSecurity lets it through.
+
+MODSECURITY:
+Mod security is a key element of the project. It analyzes HTTP/HTTPS requests, detects XSS and SQLi attacks, decides whether to pass or block a request, and generates security logs.
+
+3 Practical part
+
+In the practical part, I created and launched a test environment. The aim of the project was to implement and test the operation of a WAF firewall on an NGINX server. I used the ModSecurity module and OWASP CRS rules as the WAF.
+Environment description:
+The test environment consists of a virtual machine set up on a virtual box with Ubuntu running using Vagrant.
+The machine runs the Docker platform on which two containers were created and launched: nginx-waf (reserve proxy and WAF) and webapp (web application).
+Nginx-waf uses an NGINX server with a built-in ModSecurity module and a set of OWASP CRS rules. Webapp is not exposed to the outside world; all traffic is handled by the WAF firewall.
+Traffic flow: Client → NGINX (WAF) → ModSecurity → webapp
+When a request (https or https) arrives, the NGINX server forwards it to ModSecurity, which checks the query against security rules.
+If even one rule is violated, the request is blocked. If ModSecurity finds no problems, it forwards the request to the webapp.
+
+Tests:
+entry without attack (expected result 200 ok, entry to webapp)
+SQLI attack (expected result 403 Forbidden)
+XSS attack (expected result 403 Forbidden)
+LFI attack (expected result 403 Forbidden)
+
+Summary of the practical part:
+After completing the practical part, I believe that it is possible to implement a WAF firewall in a container environment.
+WAF works well as a network traffic control point and adequately protects the backend application (according to the rules applied).
+Implementing rules is also easy and straightforward. The environment is easy to create thanks to Docker software.
+
+
+4. Documentation of the practical part
+
+4.1 Hardware requirements:
+Operating system: Windows 10 or 11
+Virtualbox installed (version 6.1.26)
+Vagrant installed
+Internet access (image downloads)
+
+4.2 Starting the machine:
+To start the machine, go to the command line (recommended as an administrator). Then, in the command line, go to the directory where the vagrantfile is located (which I mentioned in the theoretical part). 
+The next step is to enter the command “vagrant up”. This command downloads the Ubuntu 22.04 image,
+creates a virtual machine, creates provisioning, and installs the docker engine and docker compose. If everything is already installed, this command only starts the machine.
+The screen shows the startup of an already set up machine.
+
+4.3 Starting the environment
+To log in to the machine, use the “vagrant ssh” command.
+The next step is to set up the previously created nginx-waf and webapp containers. To do this, go to the project directory.
+Once in the project directory, it is recommended to first delete all containers and their volumes using the “docker compose down -v” command,
+then set them up again without cache using “docker compose build –no-cache” and run them in the background using the “docker compose up -d” command.
+
+4.4 Error checking
+
+If you encounter any problems with the operation of any of the containers, check the logs or reset it using the following commands: 
+WAF logs:
+docker logs nginx-waf – tail 200 (displays the last 200 lines of logs)
+Webapp logs:
+docker logs webapp –tail 200 (displays the last 200 lines of logs)
+Restarting a single container:
+docker compose restart nginx-waf (or webapp).
+
+4.5 Tests:
+
+For a normal query, I use the command:
+curl -I http://localhost
+
+To simulate XSS, I use the command: 
+HTTP: curl -I “http://localhost/?test=<script>alert(1)</script>”
+HTTPS: curl -k -I “https://localhost/?test=<script>alert(1)</script>”
+or in the browser: 
+http://10.10.10.10/?q=<script>alert(1)</script>
+https://10.10.10.10/?q=<script>alert(1)</script>
+
+To simulate an SQLI attack, I use the command: 
+HTTP: curl -I “http://localhost/?id=1%20UNION%20SELECT”
+HTTPs: curl -k -I “https://localhost/?id=1%20UNION%20SELECT”
+or in a browser:
+http://10.10.10.10/?id=1%20UNION%20SELECT"
+https://10.10.10.10/?id=1%20UNION%20SELECT
+
+To simulate an LFI attack, I use the command:
+HTTP: curl -I “http://localhost/?file=..%2F..%2F..%2F..%2Fetc%2Fpasswd”
+HTTPS: curl -k -I “http://localhost/?file=..%2F..%2F..%2F..%2Fetc%2Fpasswd”
+or in a browser:
+http://10.10.10.10/?file=..%2F..%2F..% 2F..%2Fetc%2Fpasswd
+https://10.10.10.10/?file=..%2F..%2F..%2F..%2Fetc%2Fpasswd
+
+When testing https, I use -k to skip SSL certificate verification.
+
+4.6 Checking logs.
+
+To check the logs, I used the following commands:
+docker logs -f nginx-waf (real-time checking)
+docker logs --tail 100 nginx-waf
+(checking the last 100 lines of logs).
+
+5 Final conclusions
+
+During the project, I was able to launch and test the operation of a WAF firewall based on the NGINX server, Modsecurity, and OWASP CRS rules.
+The project allows you to see how web application protection works from the backend side.
+The use of Vagrant and Docker made it possible to quickly and easily prepare an environment that is repeatable on other devices. The application backend always passed through the firewall, which increased the security of the webapp data.
+The attack tests worked correctly, as intended, and normal access without an attack also worked flawlessly.
+All attacks tested using the above commands returned a 403 error, i.e., access denied. In my opinion, firewall rules should be selected individually depending on the needs of a specific application/website.
+
+Bibliography:
+https://developer.hashicorp.com/vagrant/docs
+https://developer.hashicorp.com/vagrant/docs/provisioning
+https://developer.hashicorp.com/vagrant/docs/networking
+VirtualBox:
+https://www.virtualbox.org/manual/ch06.html
+Docker oraz Docker Compose:
+https://docs.docker.com
+https://docs.docker.com/reference/dockerfile
+https://docs.docker.com/reference/compose-file/
+https://docs.docker.com/compose/how-tos/networking/
+NGINX:
+https://nginx.org/en/docs/
+https://nginx.org/en/docs/http/ngx_http_proxy_module.html
+https://nginx.org/en/docs/http/ngx_http_proxy_module.html
+ModSecurity:
+https://github.com/owasp-modsecurity/ModSecurity/wiki
+https://github.com/owasp-modsecurity/ModSecurity/wiki/Reference-Manual-%28v3.x%29
+https://github.com/owasp-modsecurity/ModSecurity/tree/v3/master
+OWASP CRS:
+https://coreruleset.org
+https://github.com/coreruleset/coreruleset
+https://coreruleset.org/docs/2-how-crs-works/2-1-anomaly_scoring/
+Obraz ModSecurity + OWASP CRS OBRAZ DOCKERA:
+https://hub.docker.com/r/owasp/modsecurity-crs
+https://github.com/coreruleset/modsecurity-crs-docker
+Ataki testowane:
+SQLi:
+https://owasp.org/www-community/attacks/SQL_Injection
+XSS:
+https://owasp.org/www-community/attacks/xss/
+LFI:
+https://owasp.org/www-community/attacks/Path_Traversal
+
+Author: Patryk Chwalik
+
